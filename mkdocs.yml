@@ -1,0 +1,7 @@
+site_name: Relayna Ecosystem
+repo_url: https://github.com/sarattha/relayna-protocol
+docs_dir: docs
+nav:
+  - Architecture: index.md
+  - Local quickstart: quickstart.md
+  - Component releases: components.md

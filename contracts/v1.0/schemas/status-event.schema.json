@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StatusEventEnvelope",
+  "type": "object",
+  "required": ["task_id", "event_id", "status", "timestamp", "spec_version"],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "event_id": { "$ref": "#/$defs/eventId" },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "completed, failed, and (when cancellation is enabled) cancelled are terminal. Other values report progress."
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "message": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "cell": {
+          "type": "object",
+          "required": ["cell_id"],
+          "properties": {
+            "cell_id": { "type": "string", "minLength": 1 },
+            "execution_id": { "type": "string", "minLength": 1 },
+            "inference": { "$ref": "observations.schema.json#/$defs/cellInference" }
+          }
+        }
+      }
+    },
+    "result": { "type": "object" },
+    "correlation_id": { "type": "string" },
+    "service": { "type": "string" },
+    "attempt_id": { "type": "string", "minLength": 1 },
+    "spec_version": { "const": "1.0" }
+  },
+  "if": {
+    "required": ["meta"],
+    "properties": { "meta": { "required": ["cell"] } }
+  },
+  "then": { "required": ["attempt_id"] },
+  "examples": [
+    {
+      "task_id": "task-42",
+      "event_id": "status-h3",
+      "status": "completed",
+      "timestamp": "2026-11-27T14:49:38Z",
+      "result": { "doubled": 42 },
+      "correlation_id": "request-19",
+      "service": "calculations",
+      "attempt_id": "attempt-x8",
+      "meta": { "cell": { "cell_id": "cell-y4", "execution_id": "exec-p2" } },
+      "spec_version": "1.0"
+    },
+    {
+      "task_id": "task-43",
+      "event_id": "status-k7",
+      "status": "failed",
+      "timestamp": "2026-11-27T14:50:38Z",
+      "message": "Task handler failed",
+      "spec_version": "1.0"
+    },
+    {
+      "task_id": "task-44",
+      "event_id": "status-p1",
+      "status": "cancelled",
+      "timestamp": "2026-11-27T14:51:38Z",
+      "attempt_id": "attempt-x9",
+      "spec_version": "1.0"
+    }
+  ],
+  "$defs": {
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "[\\u0000\\r\\n]" },
+      "description": "Opaque, case-sensitive status-event identity and exclusive replay cursor."
+    }
+  }
+}

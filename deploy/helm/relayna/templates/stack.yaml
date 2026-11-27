@@ -1,0 +1,104 @@
+{{- $prefix := include "relayna.prefix" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $prefix }}-postgres-init
+data:
+  init.sql: |
+{{ .Files.Get "files/init.sql" | indent 4 }}
+{{- range $component, $configuration := include "relayna.components" . | fromYaml }}
+{{- $name := printf "%s-%s" $prefix $component }}
+{{- if $configuration.dataPath }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if ne $.Values.storage.storageClassName nil }}
+  storageClassName: {{ $.Values.storage.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ index $.Values.storage $component | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $component }}
+  ports:
+    {{- range $port, $number := $configuration.ports }}
+    - {name: {{ $port }}, port: {{ $number }}, targetPort: {{ $port }}}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/component: {{ $component }}
+    spec:
+      enableServiceLinks: false
+      {{- with $configuration.fsGroup }}
+      securityContext:
+        fsGroup: {{ . }}
+      {{- end }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if $configuration.migrate }}
+      initContainers:
+        - name: migrate
+          image: {{ $configuration.image | quote }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          command: [alembic, upgrade, head]
+          env: {{ toYaml $configuration.env | nindent 12 }}
+      {{- end }}
+      containers:
+        - name: {{ $component }}
+          image: {{ $configuration.image | quote }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          ports:
+            {{- range $port, $number := $configuration.ports }}
+            - {name: {{ $port }}, containerPort: {{ $number }}}
+            {{- end }}
+          {{- with $configuration.env }}
+          env: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $configuration.readinessProbe }}
+          readinessProbe: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if $configuration.dataPath }}
+          volumeMounts:
+            - {name: data, mountPath: {{ $configuration.dataPath }}}
+            {{- if $configuration.initSql }}
+            - {name: init-db, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+            {{- end }}
+          {{- end }}
+      {{- if $configuration.dataPath }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ $name }}}
+        {{- if $configuration.initSql }}
+        - name: init-db
+          configMap: {name: {{ $prefix }}-postgres-init}
+        {{- end }}
+      {{- end }}
+{{- end }}

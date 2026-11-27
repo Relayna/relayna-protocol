@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "accepted": {
+      "type": "object",
+      "required": ["task_id"],
+      "properties": {
+        "task_id": { "$ref": "task-envelope.schema.json#/$defs/newHttpTaskId" }
+      },
+      "additionalProperties": false
+    },
+    "latest": {
+      "type": "object",
+      "required": ["task_id", "event"],
+      "properties": {
+        "task_id": { "type": "string", "minLength": 1 },
+        "event": { "$ref": "status-event.schema.json" }
+      }
+    },
+    "history": {
+      "type": "object",
+      "required": ["task_id", "count", "events"],
+      "properties": {
+        "task_id": { "type": "string", "minLength": 1 },
+        "count": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "events": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "status-event.schema.json" }
+        }
+      }
+    },
+    "problem": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "detail": { "type": "string" }
+      }
+    },
+    "validationProblem": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "detail": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["loc", "msg", "type"],
+                "properties": {
+                  "loc": { "type": "array", "items": { "type": ["string", "integer"] } },
+                  "msg": { "type": "string" },
+                  "type": { "type": "string" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "gap": {
+      "type": "object",
+      "required": ["earliest_event_id"],
+      "properties": {
+        "earliest_event_id": {
+          "oneOf": [
+            { "$ref": "status-event.schema.json#/$defs/eventId" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "gapProblem": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "detail": { "$ref": "#/$defs/gap" }
+      }
+    },
+    "ready": {
+      "type": "object"
+    },
+    "streamError": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

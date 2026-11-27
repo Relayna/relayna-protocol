@@ -1,0 +1,128 @@
+name: relayna-local
+
+x-studio: &studio
+  image: ${RELAYNA_STUDIO_BACKEND_IMAGE:-relayna-local/studio-backend:reference}
+  pull_policy: never
+  profiles: [studio]
+  environment:
+    RELAYNA_STUDIO_DATABASE_URL: postgresql+asyncpg://relayna:${RELAYNA_DB_PASSWORD:?Create deploy/.env}@postgres:5432/relayna_studio
+    RELAYNA_STUDIO_REDIS_URL: redis://redis:6379/1
+    RELAYNA_STUDIO_AUTH_MODE: operator
+    RELAYNA_STUDIO_OPERATOR_TOKEN: ${RELAYNA_STUDIO_OPERATOR_TOKEN:?Create deploy/.env}
+    RELAYNA_STUDIO_SESSION_COOKIE_SECURE: 'false'
+    RELAYNA_STUDIO_CAPABILITY_REFRESH_ALLOWED_HOSTS: sdk,gateway
+    RELAYNA_STUDIO_GATEWAY_URL: http://gateway:8081
+    RELAYNA_STUDIO_GATEWAY_USAGE_TOKEN: ${RELAYNA_STUDIO_GATEWAY_USAGE_TOKEN:-}
+    RELAYNA_STUDIO_GATEWAY_SERVICE_MAP: '{"reference":"reference"}'
+
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d
+    environment:
+      POSTGRES_USER: relayna
+      POSTGRES_PASSWORD: ${RELAYNA_DB_PASSWORD:?Create deploy/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./helm/relayna/files/init.sql:/docker-entrypoint-initdb.d/10-relayna.sql:ro
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, relayna, -d, relayna_gateway]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  spooltail:
+    image: ${RELAYNA_SPOOLTAIL_IMAGE:-relayna-local/spooltail:reference}
+    pull_policy: never
+    environment:
+      SPOOLTAIL_LISTEN: 0.0.0.0:7474
+      SPOOLTAIL_GRPC_LISTEN: 0.0.0.0:7443
+      SPOOLTAIL_GRPC_TLS: 'off'
+      SPOOLTAIL_DATA: /data
+    volumes:
+      - spooltail-data:/data
+
+  sdk:
+    image: ${RELAYNA_SDK_IMAGE:-relayna-local/sdk:reference}
+    pull_policy: never
+    environment:
+      SPOOLTAIL_TARGET: spooltail:7443
+      SPOOLTAIL_BROKER_VERSION: ${SPOOLTAIL_BROKER_VERSION:-0.0.6}
+      RELAYNA_SERVICE: reference
+      RELAYNA_TASK_TOPIC: reference.tasks
+      RELAYNA_STATUS_TOPIC: reference.status
+      RELAYNA_WORKER_GROUP: reference.workers
+      RELAYNA_CANCEL_TOPIC: ${RELAYNA_CANCEL_TOPIC:-reference.cancel}
+    restart: on-failure
+    depends_on:
+      spooltail:
+        condition: service_started
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/relayna/capabilities', timeout=2).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  gateway:
+    image: ${RELAYNA_GATEWAY_IMAGE:-relayna-local/gateway:reference}
+    pull_policy: never
+    environment:
+      DATABASE_URL: postgres://relayna:${RELAYNA_DB_PASSWORD:?Create deploy/.env}@postgres:5432/relayna_gateway
+      REDIS_URL: redis://redis:6379/0
+      LITELLM_BASE_URL: http://127.0.0.1:9
+      LITELLM_SERVICE_KEY: local-reference-unused
+      GATEWAY_ADMIN_TOKEN: ${RELAYNA_GATEWAY_ADMIN_TOKEN:?Create deploy/.env}
+      ENTRA_AUTH_ENABLED: 'false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      sdk:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${RELAYNA_GATEWAY_PORT:-18380}:8080
+      - 127.0.0.1:${RELAYNA_GATEWAY_CONTROL_PORT:-18381}:8081
+
+  studio-migrate:
+    <<: *studio
+    command: [alembic, upgrade, head]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  studio-backend:
+    <<: *studio
+    depends_on:
+      studio-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  studio:
+    image: ${RELAYNA_STUDIO_IMAGE:-relayna-local/studio:reference}
+    pull_policy: never
+    profiles: [studio]
+    environment:
+      STUDIO_BACKEND_UPSTREAM: studio-backend:8000
+    depends_on:
+      studio-backend:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${RELAYNA_STUDIO_PORT:-18382}:80
+
+volumes:
+  postgres-data:
+  spooltail-data:
