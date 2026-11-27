@@ -1,0 +1,224 @@
+openapi: 3.1.1
+info:
+  title: Relayna SDK Service
+  version: "1.0"
+  description: |
+    Single-task SDK HTTP contract for the Spooltail-backed Relayna service.
+    See README.md in this directory for lifecycle, replay, and compatibility rules.
+servers:
+  - url: /
+paths:
+  /tasks:
+    post:
+      operationId: submitTask
+      summary: Submit one task to the configured service
+      description: |
+        Retry an ambiguous submission with the same task ID and request. An
+        equivalent retry uses the first committed work record, including its
+        timestamp. A different submission using that ID conflicts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskSubmission'
+            example:
+              task_id: task-42
+              payload: {number: 21}
+              task_type: double
+              correlation_id: request-19
+      responses:
+        '202':
+          description: The canonical task is durably published or was already accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAccepted'
+              example: {task_id: task-42}
+        '409':
+          description: The same task ID was already submitted with different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example: {detail: Task ID already used with different content}
+        '422':
+          description: Invalid request, service mismatch, or unpublishable task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+              examples:
+                missingTaskId:
+                  value:
+                    detail:
+                      - loc: [body, task_id]
+                        msg: Field required
+                        type: missing
+                serviceMismatch:
+                  value: {detail: Service does not match the configured service}
+        '5XX':
+          description: The service could not confirm publication. Retry with the original ID and input.
+  /status/{task_id}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      operationId: getTaskStatus
+      summary: Read the latest retained status event and result
+      responses:
+        '200':
+          description: Latest status from the broker.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStatus'
+              example:
+                task_id: task-42
+                event:
+                  task_id: task-42
+                  event_id: status-h3
+                  status: completed
+                  timestamp: '2026-11-27T14:49:38Z'
+                  correlation_id: request-19
+                  service: calculations
+                  attempt_id: attempt-x8
+                  meta:
+                    cell: {cell_id: cell-y4, execution_id: exec-p2}
+                  result: {doubled: 42}
+                  spec_version: "1.0"
+        '404':
+          description: No retained status exists for the task. The task may already have been accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example: {detail: No status found for the requested task}
+  /history/{task_id}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      operationId: getTaskHistory
+      summary: Replay one page of retained status events
+      parameters:
+        - name: after
+          in: query
+          description: Exclusive event ID for this task. Omit to start at the earliest retained event.
+          schema:
+            $ref: '#/components/schemas/EventId'
+      responses:
+        '200':
+          description: Up to 64 status events in broker order, with count equal to the page length.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskHistory'
+              examples:
+                page:
+                  value:
+                    task_id: task-42
+                    count: 1
+                    events:
+                      - task_id: task-42
+                        event_id: status-r9
+                        status: processing
+                        timestamp: '2026-11-27T14:49:36Z'
+                        correlation_id: request-19
+                        service: calculations
+                        attempt_id: attempt-x8
+                        spec_version: "1.0"
+                empty:
+                  value: {task_id: task-42, count: 0, events: []}
+        '410':
+          description: The supplied cursor is unknown or unavailable. Restart without it to include the earliest retained event.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GapProblem'
+              example:
+                detail: {earliest_event_id: status-r9}
+  /events/{task_id}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      operationId: streamTaskEvents
+      summary: Replay retained status events and stream live updates
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          description: Exclusive event ID for this task. Omit to start at the earliest retained event.
+          schema:
+            $ref: '#/components/schemas/EventId'
+      responses:
+        '200':
+          description: |
+            UTF-8 server-sent events. Each status frame has an id equal to its
+            data.event_id. Control frames have no id. The stream closes after
+            a terminal status, a gap, or a stream error.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                status:
+                  value: |+
+                    event: ready
+                    data: {}
+
+                    id: status-r9
+                    event: status
+                    data: {"task_id":"task-42","event_id":"status-r9","status":"processing","timestamp":"2026-11-27T14:49:36Z","correlation_id":"request-19","service":"calculations","attempt_id":"attempt-x8","spec_version":"1.0"}
+
+                    id: status-h3
+                    event: status
+                    data: {"task_id":"task-42","event_id":"status-h3","status":"completed","timestamp":"2026-11-27T14:49:38Z","correlation_id":"request-19","service":"calculations","attempt_id":"attempt-x8","meta":{"cell":{"cell_id":"cell-y4","execution_id":"exec-p2"}},"result":{"doubled":42},"spec_version":"1.0"}
+
+                gap:
+                  value: |+
+                    event: gap
+                    data: {"earliest_event_id":"status-r9"}
+
+              x-relayna-sse-events:
+                ready:
+                  dataSchema: {$ref: '#/components/schemas/StreamReady'}
+                status:
+                  idFrom: event_id
+                  dataSchema: {$ref: '#/components/schemas/StatusEvent'}
+                gap:
+                  dataSchema: {$ref: '#/components/schemas/Gap'}
+                error:
+                  dataSchema: {$ref: '#/components/schemas/StreamError'}
+components:
+  parameters:
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      description: Task ID within this service. Existing read routes also accept legacy IDs.
+      schema:
+        type: string
+        minLength: 1
+  schemas:
+    TaskSubmission:
+      $ref: 'schemas/task-envelope.schema.json#/$defs/submitTask'
+    TaskAccepted:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/accepted'
+    StatusEvent:
+      $ref: schemas/status-event.schema.json
+    EventId:
+      $ref: 'schemas/status-event.schema.json#/$defs/eventId'
+    TaskStatus:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/latest'
+    TaskHistory:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/history'
+    Problem:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/problem'
+    ValidationProblem:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/validationProblem'
+    Gap:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/gap'
+    GapProblem:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/gapProblem'
+    StreamReady:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/ready'
+    StreamError:
+      $ref: 'schemas/sdk-http.schema.json#/$defs/streamError'
