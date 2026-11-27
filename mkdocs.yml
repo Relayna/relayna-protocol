@@ -1,5 +1,5 @@
 site_name: Relayna Ecosystem
-repo_url: https://github.com/sarattha/relayna-protocol
+repo_url: https://github.com/Relayna/relayna-protocol
 docs_dir: docs
 nav:
   - Architecture: index.md

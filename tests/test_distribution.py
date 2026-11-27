@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import runpy
 import shutil
 import subprocess
 import unittest
@@ -14,10 +15,18 @@ CHART = DEPLOY / "helm" / "relayna"
 class DistributionTests(unittest.TestCase):
     def test_exact_source_revisions(self):
         sources = json.loads((DEPLOY / "sources.json").read_text(encoding="utf-8"))
-        self.assertEqual(set(sources), {"gateway", "sdk", "spooltail", "cell"})
+        self.assertEqual(set(sources), {"gateway", "sdk", "studio", "spooltail", "cell"})
+        for component in ("sdk", "studio"):
+            self.assertEqual(sources[component]["repository"], f"https://github.com/Relayna/relayna-{component}.git")
         for name, source in sources.items():
             with self.subTest(component=name):
                 self.assertRegex(source["commit"], r"^[a-f0-9]{40}$")
+
+    def test_studio_images_use_the_studio_source(self):
+        images = runpy.run_path(str(DEPLOY / "build.py"))["IMAGES"]
+        self.assertEqual(images["sdk"][:2], ("sdk", "Dockerfile.reference"))
+        self.assertEqual(images["studio-backend"][:2], ("studio", "studio/backend/Dockerfile"))
+        self.assertEqual(images["studio"][:2], ("studio", "apps/studio/Dockerfile"))
 
     @unittest.skipUnless(shutil.which("docker"), "Docker is needed to render Compose")
     def test_compose_profile_keeps_internal_ports_private(self):

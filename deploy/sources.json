@@ -4,8 +4,12 @@
     "commit": "935779a2ea07ce1c21555b070dfbec07ebdff4d9"
   },
   "sdk": {
-    "repository": "git@github.com:sarattha/relayna.git",
-    "commit": "8b74ec8e31d1339a1309e7bb930681ce6de536ce"
+    "repository": "https://github.com/Relayna/relayna-sdk.git",
+    "commit": "10e431c06b841a5cad55318258572b5fdf6e3149"
+  },
+  "studio": {
+    "repository": "https://github.com/Relayna/relayna-studio.git",
+    "commit": "a82d9db35a059430417377a13a3def89457292f3"
   },
   "spooltail": {
     "repository": "git@github.com:Relayna/relayna-spooltail.git",

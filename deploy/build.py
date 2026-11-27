@@ -14,8 +14,8 @@ IMAGES = {
     "gateway": ("gateway", "Dockerfile", "RELAYNA_GATEWAY_IMAGE"),
     "spooltail": ("spooltail", "Dockerfile", "RELAYNA_SPOOLTAIL_IMAGE"),
     "sdk": ("sdk", "Dockerfile.reference", "RELAYNA_SDK_IMAGE"),
-    "studio-backend": ("sdk", "studio/backend/Dockerfile", "RELAYNA_STUDIO_BACKEND_IMAGE"),
-    "studio": ("sdk", "apps/studio/Dockerfile", "RELAYNA_STUDIO_IMAGE"),
+    "studio-backend": ("studio", "studio/backend/Dockerfile", "RELAYNA_STUDIO_BACKEND_IMAGE"),
+    "studio": ("studio", "apps/studio/Dockerfile", "RELAYNA_STUDIO_IMAGE"),
 }
 
 

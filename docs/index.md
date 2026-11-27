@@ -6,4 +6,4 @@ Gateway applies caller policy and routes tasks to the registered service. The Py
 
 - [Local quickstart](quickstart.md)
 - [Component releases and immutable image selection](components.md)
-- [Protocol v1.0, JSON Schemas, and OpenAPI](https://github.com/sarattha/relayna-protocol/tree/main/contracts/v1.0)
+- [Protocol v1.0, JSON Schemas, and OpenAPI](https://github.com/Relayna/relayna-protocol/tree/main/contracts/v1.0)
