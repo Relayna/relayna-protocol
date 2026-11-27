@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 import time
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -44,7 +44,7 @@ def until_ready(url, path):
         try:
             request(url, path)
             return
-        except (RuntimeError, URLError):
+        except (RuntimeError, OSError):
             time.sleep(1)
     raise RuntimeError(f"{url}{path} did not become ready")
 
