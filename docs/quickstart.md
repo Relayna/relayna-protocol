@@ -1,4 +1,6 @@
-# Local quickstart
+# Reproduce the Protocol compatibility stack
+
+For the current installation and profiles, start with [Relayna Deploy](https://github.com/Relayna/relayna-deploy). [Relayna Examples](https://github.com/Relayna/relayna-examples) supplies task clients and worker integrations. The steps below run the compatibility fixture kept with Protocol.
 
 Use Docker with Buildx and Compose v2, Python 3.12 or later, and Git with access to the component repositories. The stack runs one instance of each component. Gateway and Studio listen on loopback. SDK, Spooltail, Postgres, and Redis are reached over the Compose network.
 

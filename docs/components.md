@@ -15,6 +15,8 @@ The independent release workflow uses `sdk-vX.Y.Z` for the SDK and `studio-vX.Y.
 
 ## Reproduce a selection
 
+[Relayna Deploy](https://github.com/Relayna/relayna-deploy) maintains the shared installers and their source lock. The lock below pins Protocol's bundled compatibility fixture.
+
 `deploy/sources.json` records full SHA-1 commit IDs. `python3 deploy/build.py --lock <file>` accepts a reviewed replacement lock with the same structure. The builder fetches those revisions and labels the resulting images with their provenance. Gateway and Studio use their upstream Dockerfiles. To redeploy the exact binaries later, retain image IDs for local builds or OCI manifest digests for registry artifacts. Source builds may use upstream base tags and package mirrors. Record an image digest to reproduce the resulting artifact byte for byte.
 
 Set `RELAYNA_GATEWAY_IMAGE`, `RELAYNA_SDK_IMAGE`, `RELAYNA_SPOOLTAIL_IMAGE`, `RELAYNA_STUDIO_BACKEND_IMAGE`, and `RELAYNA_STUDIO_IMAGE` in `deploy/.env` to preexisting local tags or `repository@sha256:…` refs for Compose. Pull digest references with your existing registry access before starting the stack. For Helm, set the matching entries under `images` in a values file.

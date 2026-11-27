@@ -14,7 +14,7 @@ The single-task profile specifies how Gateway, the Python SDK, Spooltail, and St
 
 ## Run Relayna locally
 
-Use the [local quickstart](docs/quickstart.md) to install the reference stack with Compose or Helm, run an authenticated task, and replay it in Studio. The [documentation index](docs/index.md) links the component roles and [independent release channels](docs/components.md).
+[Relayna Deploy](https://github.com/Relayna/relayna-deploy) provides Compose, Helm, and deployment profiles. [Relayna Examples](https://github.com/Relayna/relayna-examples) shows how to submit a task, run a worker, and execute a workload in Cell. Use the [compatibility quickstart](docs/quickstart.md) to reproduce the deployment fixture bundled with this specification.
 
 Build the documentation portal locally with `uvx --from mkdocs==1.6.1 mkdocs build --strict`.
 
