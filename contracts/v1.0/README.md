@@ -35,7 +35,7 @@ When a trusted Cell invocation returns a Cell identifier, the SDK can add `meta.
 
 `POST /tasks/{task_id}/cancel` takes no body. The SDK confirms a durable cancellation intent with `202 {"task_id":"..."}`. A retry uses the same intent identity and cannot enqueue additional cancellation work. An unknown task returns `404`. A terminal outcome already observed before acceptance returns `409`.
 
-The worker checks the persistent intent before starting a handler and while it runs. If cancellation wins, the worker stops execution and settles its lease atomically with `cancelled`. A racing completion may win even after the caller receives `202`. Read latest status or replay to determine the outcome. Cancellation does not undo external side effects. Enable the route only with a broker that supports atomic `cancelled` completion. Older clients can keep using submission and reads without adopting cancellation.
+The worker checks the persistent intent before starting a handler and while it runs. If cancellation wins, the worker stops execution and settles its lease atomically with `cancelled`. A racing completion may win even after the caller receives `202`. Read latest status or replay to determine the outcome. External side effects already applied by a handler can persist after cancellation. Enable the route only with a broker that supports atomic `cancelled` completion. Older clients can keep using submission and reads without adopting cancellation.
 
 ## Discovery and observations
 

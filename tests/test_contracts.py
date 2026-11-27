@@ -131,6 +131,8 @@ class ContractTests(unittest.TestCase):
             check({"events": [event] * 65, "truncated": False}, inference)
         with self.assertRaises(ValidationError):
             check({"events": [event | {"decision": "pending"}], "truncated": False}, inference)
+        with self.assertRaises(ValidationError):
+            check({"events": [event | {"reason": "unexpected payload text"}], "truncated": False}, inference)
         terminal = SCHEMAS[STATUS_SCHEMA]["examples"][0]
         cell = terminal["meta"]["cell"] | {"inference": {"events": [event], "truncated": False}}
         check(terminal | {"meta": {"cell": cell}}, "#/components/schemas/StatusEvent")

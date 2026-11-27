@@ -24,11 +24,17 @@
             "type": "object",
             "required": ["event_id", "timestamp", "decision"],
             "properties": {
-              "event_id": { "type": "string", "minLength": 1 },
+              "event_id": { "type": "string", "minLength": 1, "maxLength": 256 },
               "timestamp": { "type": "string", "format": "date-time" },
               "decision": { "enum": ["allow", "deny", "result", "error"] },
               "status": { "type": "integer", "minimum": 100, "maximum": 599 },
-              "reason": { "type": "string" }
+              "reason": {
+                "type": "string",
+                "maxLength": 256,
+                "pattern": "^[a-z]",
+                "not": { "pattern": "[^a-z0-9_]" },
+                "description": "Fixed machine-readable code from Cell. Readers tolerate new codes."
+              }
             }
           }
         },

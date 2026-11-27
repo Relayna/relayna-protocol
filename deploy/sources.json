@@ -1,0 +1,18 @@
+{
+  "gateway": {
+    "repository": "git@github.com:sarattha/relayna-gateway.git",
+    "commit": "c6e24dde20e487ecc709768c854b90e2da565c0a"
+  },
+  "sdk": {
+    "repository": "git@github.com:sarattha/relayna.git",
+    "commit": "c0e56fc9df34f680da935a35453e6ae1c68ce82a"
+  },
+  "spooltail": {
+    "repository": "git@github.com:sarattha/relayna-spooltail.git",
+    "commit": "97c49a2e9322869306e22d7313ca4461620f7bf6"
+  },
+  "cell": {
+    "repository": "git@github.com:sarattha/relayna-cell.git",
+    "commit": "39b89be8788978ff2ca9ce090abee917e747cdb4"
+  }
+}
