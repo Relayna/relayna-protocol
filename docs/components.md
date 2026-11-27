@@ -11,7 +11,7 @@ The component repositories each own their release channel. The development stack
 | Spooltail | [Broker and Python client releases](https://github.com/sarattha/relayna-spooltail/releases) | Select the broker separately from its portable Python wheel. The reference build uses the portable package at the recorded broker source revision. Cancellation requires a broker with atomic `cancelled` support. |
 | Cell | [Cell releases](https://github.com/sarattha/relayna-cell/releases) | Install the standalone launcher and reference OCI image from the recorded source revision or use a compatible release. |
 
-The independent release workflow uses `sdk-vX.Y.Z` for the SDK and `studio-vX.Y.Z` for Studio. The previous combined `vX.Y.Z` release path stays available. The reference source lock records the runtime revisions used by the integration smoke.
+The independent release workflow uses `sdk-vX.Y.Z` for the SDK and `studio-vX.Y.Z` for Studio. The previous combined `vX.Y.Z` release path stays available. Cell uses `cell-vX.Y.Z` for its standalone Linux archives and publishes separate AMD64 and ARM64 checksums. The reference source lock records one compatible set of source revisions.
 
 ## Reproduce a selection
 
