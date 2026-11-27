@@ -6,7 +6,8 @@ This profile covers a single task on a trusted same-machine deployment. Gateway 
 
 - [TaskEnvelope](schemas/task-envelope.schema.json) carries the task ID, object payload, creation time, optional routing and correlation labels, and `spec_version: "1.0"`.
 - [StatusEventEnvelope](schemas/status-event.schema.json) carries the task ID, event ID, status, event time, optional metadata and object result, and `spec_version: "1.0"`. The schema includes examples with and without execution details.
-- [SDK service OpenAPI](openapi.yaml) describes the four routes and their examples. [HTTP schemas](schemas/sdk-http.schema.json) define response bodies and SSE frame data.
+- [SDK service OpenAPI](openapi.yaml) describes submission, cancellation, replay, and discovery. [HTTP schemas](schemas/sdk-http.schema.json) define response bodies and SSE frame data.
+- [Gateway task usage OpenAPI](gateway.openapi.yaml) describes the authorized task-scoped usage projection. [Observation schemas](schemas/observations.schema.json) cover SDK broker health and Cell inference summaries.
 
 Timestamps are RFC 3339 date-times with a time zone. Canonical producers omit unset optional fields. Readers tolerate additive fields in transport envelopes and status or history responses. v1.0 extensions must be optional and safe for older readers to ignore. A new required field, changed field meaning, or changed replay behavior requires a separately versioned contract. This profile leaves the existing RabbitMQ and Redis contracts, alias configuration, and query-based `GET /history` API in place. It uses the [SDK adapter from PR #146](https://github.com/sarattha/relayna/tree/b2962ad7febf63fc8d164cf2665d19a628dd47a6/src/relayna/spooltail) as the envelope baseline.
 
@@ -24,11 +25,25 @@ Spooltail deduplicates work by topic, task ID, and work event ID. With concurren
 
 Work publication and status publication are distinct. `GET /status/{task_id}` returns `{task_id, event}` with the latest retained status, including any result. The route returns `404` before the first status or if none is retained. The outer `task_id` equals the event's `task_id`.
 
-The SDK worker may report progress, such as `processing`, and settles its active work lease atomically with the terminal status in Spooltail. Producers use lower-case `completed` and `failed` for terminal outcomes. The SDK and broker recognize those markers case-insensitively for legacy records. Other status values represent nonterminal progress. Each task has a single terminal outcome and no subsequent progress. A retried handler can report progress under a new attempt. Handlers with external side effects still need their own idempotency strategy.
+The SDK worker may report progress, such as `processing`, and settles its active work lease atomically with the terminal status in Spooltail. Producers use lower-case `completed`, `failed`, and, on cancellation-enabled services, `cancelled` for terminal outcomes. Other status values represent nonterminal progress. Each task has a single terminal outcome and no subsequent progress. A retried handler can report progress under a new attempt. Handlers with external side effects still need their own idempotency strategy.
 
 `task_id` stays stable over all work deliveries. `correlation_id` joins related work across boundaries and an SDK worker may default it to the task ID. Each status record has a unique, stable `event_id` within its task's status journal. The SDK assigns an opaque `attempt_id` per claim and includes it on that claim's status events. Several events can share one attempt ID. Historical or externally produced status events may omit it.
 
 When a trusted Cell invocation returns a Cell identifier, the SDK can add `meta.cell.cell_id` and, when supplied, `meta.cell.execution_id` to the corresponding attempt's status. The SDK passes the task and attempt IDs to the configured Cell invoker and checks the echoed IDs before attaching metadata. These fields link the SDK task timeline to Cell's audit evidence. Cell owns the execution and cleanup outcome, and the SDK owns translating it into task status. A missing Cell reference is valid, including when no sandbox was created.
+
+## Cancellation
+
+`POST /tasks/{task_id}/cancel` takes no body. The SDK confirms a durable cancellation intent with `202 {"task_id":"..."}`. A retry uses the same intent identity and cannot enqueue additional cancellation work. An unknown task returns `404`. A terminal outcome already observed before acceptance returns `409`.
+
+The worker checks the persistent intent before starting a handler and while it runs. If cancellation wins, the worker stops execution and settles its lease atomically with `cancelled`. A racing completion may win even after the caller receives `202`. Read latest status or replay to determine the outcome. Cancellation does not undo external side effects. Enable the route only with a broker that supports atomic `cancelled` completion. Older clients can keep using submission and reads without adopting cancellation.
+
+## Discovery and observations
+
+Read `GET /relayna/capabilities` to discover a service's SDK version, topology, route IDs, and feature flags. Gateway forwards discovery under the same authorized service registration prefix. `spooltail.task_history.v1` selects task-scoped broker replay. `spooltail.cancel.v1` advertises the cancellation route. `spooltail.broker.v1` advertises `GET /relayna/broker`, which returns nonnegative broker-wide counters and may include the configured broker version. Treat earlier profiles without these optional flags according to the capabilities they advertise.
+
+Gateway owns `GET /services/{registration}/tasks/{task_id}/usage` and checks the caller's registration grant. The response gives the scoped usage totals and up to 100 latest observations. An empty ledger returns zero totals, an empty observations array, and null cost. An observation can carry the SDK attempt as `run_id` when the trusted execution path established that correlation. The request ID and the optional trace ID identify the observed HTTP request. Worker attribution comes from the trusted invocation path. Studio can separately read Gateway's operator usage API with a scoped `usage:read` credential. Gateway accounting and Cell evidence remain separate from broker task status.
+
+When scoped inference is enabled in standalone Cell, SDK status may include `meta.cell.inference` with the first 64 task inference events in journal order and a `truncated` flag if further matching events exist. Each event carries its ID, timestamp, a decision (`allow`, `deny`, `result`, or `error`), and optionally an HTTP status or a fixed, payload-safe reason code. The summary comes from trusted Cell audit records correlated by Cell ID. Inference request bodies, responses, and credentials are outside this summary.
 
 ## History and event replay
 

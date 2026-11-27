@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "broker": {
+      "title": "Spooltail Broker Observations",
+      "type": "object",
+      "required": ["broker", "payload_reads", "recovered_frames"],
+      "properties": {
+        "broker": { "const": "spooltail" },
+        "version": { "type": ["string", "null"] },
+        "payload_reads": { "type": "integer", "minimum": 0 },
+        "recovered_frames": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cellInference": {
+      "title": "Cell Scoped Inference Observations",
+      "type": "object",
+      "required": ["events", "truncated"],
+      "properties": {
+        "events": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["event_id", "timestamp", "decision"],
+            "properties": {
+              "event_id": { "type": "string", "minLength": 1 },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "decision": { "enum": ["allow", "deny", "result", "error"] },
+              "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "truncated": { "type": "boolean" }
+      }
+    }
+  }
+}

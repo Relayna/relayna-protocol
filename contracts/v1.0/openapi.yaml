@@ -8,6 +8,40 @@ info:
 servers:
   - url: /
 paths:
+  /relayna/capabilities:
+    get:
+      operationId: discoverServiceCapabilities
+      summary: Discover the SDK service profile
+      responses:
+        '200':
+          description: SDK capability document with additive feature flags.
+          content:
+            application/json:
+              schema:
+                $ref: schemas/service-capability.schema.json
+              example:
+                relayna_version: '1.0.0'
+                topology_kind: spooltail
+                alias_config_summary: {aliasing_enabled: false, payload_aliases: {}, http_aliases: {}}
+                supported_routes: [status.latest, status.history, status.events]
+                feature_flags: [spooltail.task_history.v1, spooltail.cancel.v1, spooltail.broker.v1]
+                service_metadata:
+                  service_title: reference
+                  capability_path: /relayna/capabilities
+                  discovery_source: live
+                  compatibility: capabilities_v1
+  /relayna/broker:
+    get:
+      operationId: getBrokerObservations
+      summary: Read the broker's live counters through the SDK
+      responses:
+        '200':
+          description: Available when spooltail.broker.v1 is advertised. These counters are broker-wide.
+          content:
+            application/json:
+              schema:
+                $ref: 'schemas/observations.schema.json#/$defs/broker'
+              example: {broker: spooltail, payload_reads: 12, recovered_frames: 0, version: '0.0.6'}
   /tasks:
     post:
       operationId: submitTask
@@ -59,6 +93,40 @@ paths:
                   value: {detail: Service does not match the configured service}
         '5XX':
           description: The service could not confirm publication. Retry with the original ID and input.
+  /tasks/{task_id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      operationId: requestTaskCancellation
+      summary: Request cancellation of an accepted task
+      description: |
+        Available on cancellation-enabled services. No request body is needed.
+        The intent is durable and idempotent. A successful request can still
+        race with completion. Read status for the broker's final outcome.
+      responses:
+        '202':
+          description: A cancellation intent is durable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAccepted'
+              example: {task_id: task-42}
+        '404':
+          description: The task is unknown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example: {detail: No task found for the requested ID}
+        '409':
+          description: The task was already terminal when the request was evaluated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example: {detail: Task is already terminal}
+        '5XX':
+          description: The service could not confirm a durable intent. Check status and retry if still needed.
   /status/{task_id}:
     parameters:
       - $ref: '#/components/parameters/TaskId'

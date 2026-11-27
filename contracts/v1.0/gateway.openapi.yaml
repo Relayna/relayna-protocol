@@ -1,0 +1,63 @@
+openapi: 3.1.1
+info:
+  title: Relayna Gateway Task Usage
+  version: "1.0"
+servers:
+  - url: /
+security:
+  - RelaynaKey: []
+paths:
+  /services/{registration}/tasks/{task_id}/usage:
+    parameters:
+      - name: registration
+        in: path
+        required: true
+        schema: {type: string, minLength: 1}
+      - name: task_id
+        in: path
+        required: true
+        schema: {type: string, minLength: 1}
+    get:
+      operationId: getTaskUsage
+      summary: Read task usage with an explicit grant for the Gateway registration
+      responses:
+        '200':
+          description: Usage totals and up to 100 newest observations. An empty ledger returns zero counts and null cost.
+          content:
+            application/json:
+              schema:
+                $ref: schemas/task-usage.schema.json
+              example:
+                service: reference
+                task_id: task-42
+                request_count: 1
+                input_tokens: 10
+                output_tokens: 4
+                total_tokens: 14
+                estimated_cost_usd: null
+                observations:
+                  - request_id: request-19
+                    trace_id: null
+                    created_at: '2026-11-27T14:49:38Z'
+                    route: /v1/chat/completions
+                    provider: litellm
+                    model: reference-model
+                    http_method: POST
+                    endpoint_path: /v1/chat/completions
+                    status_code: 200
+                    run_id: attempt-x8
+                    input_tokens: 10
+                    output_tokens: 4
+                    total_tokens: 14
+                    estimated_cost_usd: null
+                truncated: false
+        '401':
+          description: Gateway authentication is required.
+        '403':
+          description: The authenticated caller lacks the explicit task registration grant.
+components:
+  securitySchemes:
+    RelaynaKey:
+      type: http
+      scheme: bearer
+      description: Local key-only profile. Deployments continue using their configured Gateway authentication policy.

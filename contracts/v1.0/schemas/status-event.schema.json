@@ -6,7 +6,11 @@
   "properties": {
     "task_id": { "type": "string", "minLength": 1 },
     "event_id": { "$ref": "#/$defs/eventId" },
-    "status": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "completed, failed, and (when cancellation is enabled) cancelled are terminal. Other values report progress."
+    },
     "timestamp": { "type": "string", "format": "date-time" },
     "message": { "type": "string" },
     "meta": {
@@ -17,7 +21,8 @@
           "required": ["cell_id"],
           "properties": {
             "cell_id": { "type": "string", "minLength": 1 },
-            "execution_id": { "type": "string", "minLength": 1 }
+            "execution_id": { "type": "string", "minLength": 1 },
+            "inference": { "$ref": "observations.schema.json#/$defs/cellInference" }
           }
         }
       }
@@ -52,6 +57,14 @@
       "status": "failed",
       "timestamp": "2026-11-27T14:50:38Z",
       "message": "Task handler failed",
+      "spec_version": "1.0"
+    },
+    {
+      "task_id": "task-44",
+      "event_id": "status-p1",
+      "status": "cancelled",
+      "timestamp": "2026-11-27T14:51:38Z",
+      "attempt_id": "attempt-x9",
       "spec_version": "1.0"
     }
   ],

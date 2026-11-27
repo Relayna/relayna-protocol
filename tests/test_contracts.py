@@ -12,6 +12,7 @@ from referencing.jsonschema import DRAFT202012
 
 CONTRACT = Path(__file__).resolve().parents[1] / "contracts" / "v1.0"
 OPENAPI, OPENAPI_URI = read_from_filename(str(CONTRACT / "openapi.yaml"))
+GATEWAY_OPENAPI, GATEWAY_URI = read_from_filename(str(CONTRACT / "gateway.openapi.yaml"))
 SCHEMAS = {
     path.name: json.loads(path.read_text(encoding="utf-8"))
     for path in (CONTRACT / "schemas").glob("*.schema.json")
@@ -21,7 +22,10 @@ STATUS_SCHEMA = "status-event.schema.json"
 REGISTRY = Registry().with_resources(
     ((CONTRACT / "schemas" / name).as_uri(), DRAFT202012.create_resource(schema))
     for name, schema in SCHEMAS.items()
-).with_resource(OPENAPI_URI, DRAFT202012.create_resource(OPENAPI))
+).with_resources(
+    (uri, DRAFT202012.create_resource(document))
+    for uri, document in ((OPENAPI_URI, OPENAPI), (GATEWAY_URI, GATEWAY_OPENAPI))
+)
 
 
 def check(instance, ref, base_uri=OPENAPI_URI):
@@ -36,6 +40,7 @@ def check(instance, ref, base_uri=OPENAPI_URI):
 class ContractTests(unittest.TestCase):
     def test_documents_and_transport_examples(self):
         validate_openapi(OPENAPI, base_uri=OPENAPI_URI)
+        validate_openapi(GATEWAY_OPENAPI, base_uri=GATEWAY_URI)
         for name, schema in SCHEMAS.items():
             with self.subTest(schema=name):
                 Draft202012Validator.check_schema(schema)
@@ -110,6 +115,25 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(last_event, latest["example"]["event"])
         check({"earliest_event_id": None}, "#/components/schemas/Gap")
         check({"error": "Status subscription unavailable"}, "#/components/schemas/StreamError")
+
+    def test_gateway_usage_example_and_bounded_cell_observations(self):
+        path = "/services/{registration}/tasks/{task_id}/usage"
+        response = GATEWAY_OPENAPI["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]
+        check(response["example"], response["schema"]["$ref"], GATEWAY_URI)
+        event = {
+            "event_id": "cell-audit-1",
+            "timestamp": "2026-11-27T14:49:37Z",
+            "decision": "allow",
+        }
+        inference = "schemas/observations.schema.json#/$defs/cellInference"
+        check({"events": [event], "truncated": False}, inference)
+        with self.assertRaises(ValidationError):
+            check({"events": [event] * 65, "truncated": False}, inference)
+        with self.assertRaises(ValidationError):
+            check({"events": [event | {"decision": "pending"}], "truncated": False}, inference)
+        terminal = SCHEMAS[STATUS_SCHEMA]["examples"][0]
+        cell = terminal["meta"]["cell"] | {"inference": {"events": [event], "truncated": False}}
+        check(terminal | {"meta": {"cell": cell}}, "#/components/schemas/StatusEvent")
 
     def test_submission_rejects_unsafe_ids_and_unversioned_shapes(self):
         valid = {"task_id": "a" + "_-~.0" * 51, "payload": {}}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Relayna Service Capability Document",
+  "type": "object",
+  "required": ["relayna_version", "topology_kind", "alias_config_summary", "supported_routes", "feature_flags", "service_metadata"],
+  "properties": {
+    "relayna_version": { "type": "string", "minLength": 1 },
+    "topology_kind": { "const": "spooltail" },
+    "alias_config_summary": {
+      "type": "object",
+      "required": ["aliasing_enabled", "payload_aliases", "http_aliases"],
+      "properties": {
+        "aliasing_enabled": { "type": "boolean" },
+        "payload_aliases": { "type": "object", "additionalProperties": { "type": "string" } },
+        "http_aliases": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "supported_routes": { "type": "array", "items": { "type": "string" } },
+    "feature_flags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Includes spooltail.task_history.v1; spooltail.cancel.v1 advertises cancellation and spooltail.broker.v1 advertises broker observations."
+    },
+    "service_metadata": {
+      "type": "object",
+      "required": ["capability_path", "discovery_source", "compatibility"],
+      "properties": {
+        "service_title": { "type": ["string", "null"] },
+        "capability_path": { "const": "/relayna/capabilities" },
+        "discovery_source": { "type": "string" },
+        "compatibility": { "const": "capabilities_v1" }
+      }
+    }
+  }
+}
